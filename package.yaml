@@ -22,6 +22,21 @@ description: Please see the README on GitHub at <https://github.com/githubuser/d
 dependencies:
   - base >= 4.7 && < 5
   - hmatrix
+  - vector
+  - cassava
+  - containers
+  - bytestring
+  - text
+  - time
+  - http-conduit
+  - http-client
+  - http-client-tls
+  - tls
+  - crypton-connection
+  - crypton-x509-system
+  - directory
+  - filepath
+  - cmdargs
 
 ghc-options:
   - -Wall

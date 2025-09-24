@@ -36,14 +36,18 @@ solveADMM Opt {..} QP {..} x0 =
   where
     (m, n) = size qA
     at = tr qA -- n×m
-    k = qQ + scale rho (tr qA <> qA) -- KKT matrix (n×n)
-    kReg = k + scale 1e-10 (ident n) -- regularization for numerical stability
-    solveK :: Vector Double -> Vector Double
-    solveK b = flatten $ fromJust $ linearSolve kReg (asColumn b)
+    -- KKT matrix (nxn)
+    -- K = Q + ρ A' A
+    k = qQ + scale rho (tr qA <> qA)
+    -- regularization for numerical stability
+    -- K_reg = K + 1e-10 I, i.e., K = Q + ρ A' A + 1e-10 I
+    kReg = k + scale 1e-10 (ident n)
     z0 = konst 0 m -- initial z
     y0 = konst 0 m -- initial y
-    qScale = max 1 (norm2 qq) -- scaling factor for q
     aScale = max 1 (norm_Frob qA) -- scaling factor for A
+    -- pre-factorization & solver for KKT system
+    solveK :: Vector Double -> Vector Double
+    solveK b = flatten $ fromJust $ linearSolve kReg (asColumn b)
     -- main ADMM loop
     loop 0 x z y = (x, maxIt, 1 / 0, 1 / 0) -- maxIt reached
     loop it x z y =

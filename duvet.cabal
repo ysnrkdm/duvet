@@ -30,6 +30,11 @@ library
     Internal.Types
     Internal.Utils
     Lib
+    RiskModel.CsvSave
+    RiskModel.FetchData
+    RiskModel.Generate
+    RiskModel.RiskModel
+    RiskModel.Types
   other-modules:
     Paths_duvet
   autogen-modules:
@@ -39,7 +44,22 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
     base >=4.7 && <5,
-    hmatrix
+    bytestring,
+    cassava,
+    cmdargs,
+    containers,
+    crypton-connection,
+    crypton-x509-system,
+    directory,
+    filepath,
+    hmatrix,
+    http-client,
+    http-client-tls,
+    http-conduit,
+    text,
+    time,
+    tls,
+    vector
   default-language: Haskell2010
 
 executable duvet-exe
@@ -53,8 +73,23 @@ executable duvet-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     base >=4.7 && <5,
+    bytestring,
+    cassava,
+    cmdargs,
+    containers,
+    crypton-connection,
+    crypton-x509-system,
+    directory,
     duvet,
-    hmatrix
+    filepath,
+    hmatrix,
+    http-client,
+    http-client-tls,
+    http-conduit,
+    text,
+    time,
+    tls,
+    vector
   default-language: Haskell2010
 
 test-suite duvet-test
@@ -69,6 +104,21 @@ test-suite duvet-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     base >=4.7 && <5,
+    bytestring,
+    cassava,
+    cmdargs,
+    containers,
+    crypton-connection,
+    crypton-x509-system,
+    directory,
     duvet,
-    hmatrix
+    filepath,
+    hmatrix,
+    http-client,
+    http-client-tls,
+    http-conduit,
+    text,
+    time,
+    tls,
+    vector
   default-language: Haskell2010
