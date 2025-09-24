@@ -1,20 +1,30 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 
 module Lib
   ( runDemo,
+    SolverOptions (..),
   )
 where
 
+import Control.Monad (when)
 import Data.List (zip4)
-import Debug.Trace (trace)
 import Internal.ADMMSolver (solveADMM)
 import Internal.Options (Opt (..), defaultOpt)
 import Internal.Types (QP (..))
 import Internal.Utils
 import Numeric.LinearAlgebra
+import RiskModel.CsvStore
+import System.FilePath ((</>))
 import Text.Printf (printf)
 import Prelude hiding ((<>))
+
+data SolverOptions = SolverOptions
+  { analysisDate :: String,
+    annualized :: Bool
+  }
+  deriving (Show)
 
 -- Generate sigma & Q,q like Barra
 -- sigma = B F B' + diag(d)
@@ -50,25 +60,32 @@ quadForm :: Matrix Double -> Vector Double -> Double
 quadForm m v = (v <.> (m #> v))
 
 -- Tracking Error
-trackingError :: Matrix Double -> Vector Double -> Vector Double -> Double
-trackingError sigma x wBmk = sqrt deltaTEV
+trackingError :: Matrix Double -> Vector Double -> Vector Double -> Bool -> Double
+trackingError sigma x wBmk annualized = if annualized then tevAnnual else tevDaily
   where
     delta = x - wBmk
     tev = quadForm sigma delta
     deltaTEV = max 0 tev -- avoid negative due to numerical error
+    tevDaily = sqrt deltaTEV
+    tevAnnual = tevDaily * sqrt 252
 
-runDemo :: IO ()
-runDemo = do
-  putStrLn "Running demo..."
+runDemo :: SolverOptions -> IO ()
+runDemo SolverOptions {analysisDate, annualized} = do
+  putStrLn $ "Solving QP for analysis date: " ++ show analysisDate
+  let dir = "out" </> analysisDate
+
+  putStrLn $ "Loading F,B,D from " ++ dir
+  loadedB <- loadMatrixWideCSV dir "B"
+  loadedF <- loadMatrixWideCSV dir "F_daily"
+  loadedD <- loadVectorCSV dir "D_daily"
+
+  let (_syms, b, f, d) = validateFBD loadedB loadedF loadedD
+
   let n = length sp11Benchmark -- number of assets
-      seed = 42
-      lambda = 0.05 -- risk aversion (common and specific)
+      lambda = 0.5 -- risk aversion (common and specific)
       gamma = 5e-12 -- transaction cost coefficient
 
   -- -- More realistic B, F, d
-  let b = mkExposure seed -- factor loadings (n×k)
-      f = factorConvDaily -- factor covariance (k×k)
-      d = mkSpecificVarDaily b -- specific risks (n-vector)
   putStrLn $ "B shape: " ++ sprintShape b
   putStrLn $ "F shape: " ++ sprintShape f
   putStrLn $ "d shape: " ++ show (size d)
@@ -111,8 +128,8 @@ runDemo = do
   putStrLn "x* ="
   disp 3 (asColumn xSol)
 
-  let tev = trackingError sigma xSol wBmk
-  printf "Tracking Error (TEV) = %.8f\n" tev
+  let tev = trackingError sigma xSol wBmk annualized
+  printf "Tracking Error (%s) = %.8f\n" (if annualized then "TEV Annualized" else "TEV Daily") tev
 
   mapM_
     ( \(nm, wb, wx, xp) ->
@@ -144,80 +161,34 @@ sp11Benchmark =
 sp11Names :: [String]
 sp11Names = map fst sp11Benchmark
 
-sp11NamesNoCash :: [String]
-sp11NamesNoCash = init sp11Names
-
 wBench :: Vector Double
 wBench = fromList $ map snd sp11Benchmark
 
-wBenchNoCash :: Vector Double
-wBenchNoCash = fromList $ map snd (init sp11Benchmark)
-
--- z-score normalization
-zscore :: Vector Double -> Vector Double
-zscore v = scale (1 / s) (v - konst m (size v))
-  where
-    m = mean v
-    s = std v
-    mean u = sumElements u / fromIntegral (size u)
-    std u = sqrt (sumElements ((u - konst (mean u) (size u)) ** 2) / fromIntegral (size u))
-
--- Proxies for size factor
--- Large cap = heavy on the benchmark -> negative SMB
-sizeProxy :: Vector Double
-sizeProxy = cmap (* (-1)) wBenchNoCash
-
--- Proxies for value factor
--- Value = high B/P (low P/B) = low price (high book) -> negative HML
-valueProxy :: Vector Double
-valueProxy = fromList [0.2, 0.1, -0.1, -0.2, 0.0, -0.1, 0.15, -0.25, -0.05, 0.05]
-
--- Add small Gaussian noise for reality
-noiseV :: Int -> Int -> Vector Double
-noiseV seed n = scale 0.05 (randnVec seed n)
-
-mkExposure :: Int -> Matrix Double
-mkExposure seed =
-  trace ("size of B: " ++ sprintShape bStock) $
-    vstackM [bStock, bCash]
-  where
-    n = length sp11NamesNoCash
-    mkt = konst 1.0 n + noiseV (seed + 1) n -- market factor
-    smb = zscore (sizeProxy + noiseV (seed + 2) n) -- size factor
-    hml = zscore (valueProxy + noiseV (seed + 3) n) -- value factor
-    bStock = fromColumns [mkt, smb, hml]
-    bCash = (1 >< 3) [0.0, 0.0, 0.0] -- cash has no factor exposure
-
-factorConvAnnual :: Matrix Double
-factorConvAnnual = sd <> corrs <> sd
-  where
-    sd = diag vols -- standard deviations
-    vols = fromList [0.20, 0.10, 0.08] -- annualized volatilities
-    corrs =
-      (3 >< 3)
-        [ 1.0,
-          0.2,
-          -0.1,
-          0.2,
-          1.0,
-          -0.2,
-          -0.1,
-          -0.2,
-          1.0 -- correlation matrix
-        ]
-
-factorConvDaily :: Matrix Double
-factorConvDaily = scale (1 / sqrt 252) factorConvAnnual
-
-targetVolAnnual :: Vector Double
-targetVolAnnual = fromList [0.30, 0.28, 0.35, 0.32, 0.27, 0.33, 0.25, 0.30, 0.29, 0.26]
-
-mkSpecificVarDaily :: Matrix Double -> Vector Double
-mkSpecificVarDaily b = vjoin [idioDaily, fromList [1e-12]] -- add tiny specific var for cash
-  where
-    n = rows b - 1
-    rowsB = toRows b
-    facVarA = fromList [quadForm factorConvAnnual (rowsB !! i) | i <- [0 .. n - 1]]
-    targVarA = targetVolAnnual ** 2
-    idioVarA = cmap (max (0.05 ** 2)) (targVarA - facVarA) -- ensure minimum specific variance > 0.05^2
-    idioDaily = scale (1 / sqrt 252) idioVarA
+validateFBD ::
+  ([String], [String], Matrix Double) -> -- (rowNamesB, colNamesB, B)
+  ([String], [String], Matrix Double) -> -- (rowNamesF, colNamesF, F)
+  ([String], Vector Double) -> -- (namesD, D)
+  ( [String], -- symbols
+    Matrix Double, -- B
+    Matrix Double, -- F
+    Vector Double -- D
+  )
+validateFBD (rowsB, colsB, b) (_rowsF, colsF, f) (namesD, d) = do
+  -- Verify dimensions
+  let n = rows b
+      k = cols b
+  when (cols f /= k || rows f /= k) $
+    error $
+      "F size mismatch: expected " ++ show k ++ "x" ++ show k
+  when (size d /= n) $
+    error $
+      "D size mismatch: expected " ++ show n
+  -- Verify factor label alignment (it's okay if the order matches even if the column names differ)
+  when (colsB /= colsF) $
+    error $
+      "[warn] factor names differ: B=" ++ show colsB ++ " F=" ++ show colsF
+  -- Verify symbol name alignment (it's safer to error out here if they differ)
+  when (rowsB /= namesD) $
+    error $
+      "symbol order mismatch between B and D"
+  (rowsB, b, f, d)

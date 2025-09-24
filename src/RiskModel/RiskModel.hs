@@ -1,4 +1,15 @@
-module RiskModel.RiskModel where
+module RiskModel.RiskModel
+  ( alignByDate,
+    alignByDateStrict,
+    logReturns,
+    adv20,
+    mom12m1,
+    buildB,
+    factorReturnCS,
+    ewmaUpdateCov,
+    ewmaUpdateVarVec,
+  )
+where
 
 import Data.List (nub, sort)
 import qualified Data.Map.Strict as M
@@ -41,7 +52,7 @@ alignByDateStrict ::
   [(String, [(Day, Double, Double)])] ->
   [(Day, [(String, (Double, Double))])]
 alignByDateStrict xs =
-  let perSym = [(s, M.fromList [(d, (c, v)) | (d, c, v) <- rows]) | (s, rows) <- xs]
+  let perSym = [(s, M.fromList [(d, (c, v)) | (d, c, v) <- rows']) | (s, rows') <- xs]
       common :: S.Set Day
       common =
         foldl1
@@ -54,7 +65,7 @@ alignByDateStrict xs =
 
 alignByDate :: [(String, [(Day, Double, Double)])] -> [(Day, [(String, (Double, Double))])]
 alignByDate xs =
-  let syms = [s | (s, _) <- xs]
+  let _syms = [s | (s, _) <- xs]
       byS = xs
       allDays = foldr (\(_, rows') acc -> nub (map (\(d, _, _) -> d) rows') ++ acc) [] byS
       days = reverse $ sort allDays

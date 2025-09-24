@@ -4,7 +4,7 @@ import Control.Monad (foldM, forM)
 import Data.Maybe (fromMaybe)
 import Data.Time (Day)
 import Numeric.LinearAlgebra
-import RiskModel.CsvSave (saveMatrixWideCSV, saveVectorCSV)
+import RiskModel.CsvStore (saveMatrixWideCSV, saveVectorCSV)
 import RiskModel.FetchData (fetchStooq)
 import RiskModel.RiskModel
 import System.Directory (createDirectoryIfMissing)

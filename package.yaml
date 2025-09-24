@@ -36,7 +36,6 @@ dependencies:
   - crypton-x509-system
   - directory
   - filepath
-  - cmdargs
 
 ghc-options:
   - -Wall

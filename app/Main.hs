@@ -4,20 +4,24 @@ module Main (main) where
 
 import Lib
 import RiskModel.Generate (generateRiskData)
-import System.Console.CmdArgs
-
-data CmdOptions = CmdOptions
-  { demo :: Bool,
-    generate :: Bool
-  }
-  deriving (Show, Data, Typeable)
+import System.Environment (getArgs)
 
 main :: IO ()
 main = do
-  opts <- cmdArgs (CmdOptions {demo = False, generate = False} &= help "Run demo or generate risk data" &= summary "Duvet 0.1")
-  if demo opts
-    then runDemo
-    else
-      if generate opts
-        then generateRiskData
-        else putStrLn "Please specify --demo or --generate"
+  args' <- getArgs
+  case args' of
+    ["build"] -> generateRiskData
+    ["solve", dateStr] -> do
+      runDemo SolverOptions {analysisDate = dateStr, annualized = False}
+    ["solve", dateStr, "--annualized"] -> do
+      runDemo SolverOptions {analysisDate = dateStr, annualized = True}
+    _ -> do
+      putStrLn "Usage:"
+      putStrLn "  duvet build"
+      putStrLn "  (to build risk model data)"
+      putStrLn "  duvet solve <date>"
+      putStrLn "  (to solve the QP problem for a specific date)"
+      putStrLn ""
+      putStrLn "Example:"
+      putStrLn "  duvet solve 2025-08-15"
+      putStrLn "  (date format: YYYY-MM-DD)"

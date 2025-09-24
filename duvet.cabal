@@ -30,7 +30,7 @@ library
     Internal.Types
     Internal.Utils
     Lib
-    RiskModel.CsvSave
+    RiskModel.CsvStore
     RiskModel.FetchData
     RiskModel.Generate
     RiskModel.RiskModel
@@ -46,7 +46,6 @@ library
     base >=4.7 && <5,
     bytestring,
     cassava,
-    cmdargs,
     containers,
     crypton-connection,
     crypton-x509-system,
@@ -75,7 +74,6 @@ executable duvet-exe
     base >=4.7 && <5,
     bytestring,
     cassava,
-    cmdargs,
     containers,
     crypton-connection,
     crypton-x509-system,
@@ -106,7 +104,6 @@ test-suite duvet-test
     base >=4.7 && <5,
     bytestring,
     cassava,
-    cmdargs,
     containers,
     crypton-connection,
     crypton-x509-system,
